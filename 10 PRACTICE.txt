@@ -1,0 +1,106 @@
+MATCH (eachTeam:Team)-[:PLAYED]->(matches:Match)
+WITH DISTINCT matches.season as season,eachTeam, matches
+ORDER BY matches.season
+WITH eachTeam, collect(matches.fullTimeResult) as result
+CALL apoc.coll.split(result, eachTeam.name) YIELD value as win
+RETURN eachTeam.name, result, win;
+
+MATCH (eachTeam:Team)-[:PLAYED]->(matches:Match)
+WITH DISTINCT matches.season as season,eachTeam, matches
+ORDER BY season
+WITH eachTeam, collect(matches.fullTimeResult) as result, season
+RETURN season ,eachTeam.name, size(result);
+
+
+MATCH (eachTeam:Team)-[:PLAYED]->(matches:Match)
+WITH DISTINCT ,eachTeam, matches
+ORDER BY matches.season
+WITH eachTeam, collect(matches.fullTimeResult) as result
+CALL apoc.coll.split(result, eachTeam.name) YIELD value as win
+RETURN eachTeam.name, result, win;
+
+
+MATCH (eachTeam:Team)-[:PLAYED]->(matches:Match)
+WITH eachTeam, matches
+ORDER BY matches.dateTime, eachTeam
+WITH eachTeam, collect(CASE WHEN matches.fullTimeResult = eachTeam.name OR matches.fullTimeResult = 'DRAW' THEN true ELSE false END) as result, matches
+RETURN eachTeam.name, result;
+
+MATCH (eachTeam:Team)-[:PLAYED]->(matches:Match)
+WITH eachTeam, matches
+ORDER BY matches.dateTime
+WITH DISTINCT eachTeam, SUM(CASE WHEN matches.fullTimeResult = eachTeam.name OR matches.fullTimeResult = 'DRAW' THEN 1 END) as result
+CASE
+RETURN eachTeam.name, result
+ORDER BY result DESC;
+
+MATCH (eachTeam:Team)-[:PLAYED]->(matches:Match)
+WHERE matches.fullTimeResult = eachTeam.name
+WITH DISTINCT eachTeam, matches
+ORDER BY matches.dateTime, eachTeam
+WITH count(*) as match, eachTeam
+RETURN eachTeam.name, match;
+
+Your use case does not actually require the detection of the most consecutive 1s (and it also does not need to use UNWIND).
+
+The following query uses REDUCE to directly calculate the maximum number of consecutive wins for each team (consW keeps track of the current number of consecutive wins, and maxW is the maximum number of consecutive wins found thus far):
+
+MATCH (team:TEAM)-[p:PLAYED]-(matches:Match)
+WITH team, p
+ORDER BY matches.dateTime ASC
+WITH team,
+  REDUCE(s = {consW: 0, maxW: 0}, m IN COLLECT(p) |
+    CASE WHEN (team = startnode(m) AND matches.fullTimeResult = team.name) OR (team = endnode(m) AND matches.fullTimeResult = team.name)
+      THEN {consW: s.consW+1, maxW: CASE WHEN s.consW+1 > s.maxW THEN s.consW+1 ELSE s.maxW END}
+      ELSE s
+    END).maxW AS most_consecutive_wins
+RETURN team.name AS teamName, most_consecutive_wins;
+
+MATCH (eachTeam:Team)-[:PLAYED]->(matches:Match)
+WITH eachTeam, matches
+ORDER BY matches.dateTime, eachTeam
+WITH eachTeam, collect(CASE WHEN matches.fullTimeResult = eachTeam.name OR matches.fullTimeResult = 'DRAW' THEN true ELSE false END) as result
+RETURN eachTeam.name, reduce(age = 0, n IN result | CASE WHEN n = true THEN age+1 END) AS reduction;
+
+MATCH (n) 
+WHERE n.name = 'DONALDO' AND NOT (n.gender = 'F')
+RETURN n;
+
+MATCH (n) 
+WHERE n.name = 'DONALDO' OR (n.age = 27)
+RETURN n;
+
+// Filter on Node property
+MATCH (n) WHERE n.gender = 'M' RETURN n;
+
+// property exists
+// return if the property exists
+MATCH (n) WHERE n.status IS NOT NULL RETURN n;
+
+// Ends with
+MATCH (n) 
+WHERE n.name ENDS WITH 'Y'
+RETURN n; 
+
+// Match anywhere in string
+MATCH (n) 
+WHERE n.name CONTAINS 'OS'
+
+// String matching negation
+// exclude the matching node
+MATCH (n) 
+WHERE NOT n.name CONTAINS 'OS'
+RETURN n;
+
+// Regular Expressions
+MATCH (n) 
+WHERE n.name =~ 'RO.*'
+RETURN n;
+
+RESULT: Node starting with ‘RO’
+
+// for case insensitive regular expression
+MATCH (n) 
+WHERE n.name =~ '(?i)ro.*'
+RETURN n;
+

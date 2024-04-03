@@ -1,0 +1,223 @@
+
+// -----
+// Finds homeTeam and away team
+MATCH (t1:HomeTeam)-[:PLAYED]->(m:Match)<-[:PLAYED]-(t2:AwayTeam)
+// find referee of matches
+MATCH(m)-[:HANDLED_BY]->(r:Referee)
+// return the nodes and relationships between them
+RETURN t1,m,t2,r
+LIMIT 6;
+
+// creating constraint
+CREATE CONSTRAINT hometeam_is_unique FOR (team:HomeTeam) REQUIRE team.name IS UNIQUE;
+// creating unique constraint for away team
+CREATE CONSTRAINT awayteam_is_unique FOR (awayteam:AwayTeam) REQUIRE awayteam.name IS UNIQUE;
+// for referee
+CREATE CONSTRAINT referee_is_unique FOR (referee:Referee) REQUIRE referee.name IS UNIQUE;
+
+// Dropping constriant
+DROP CONSTRAINT hometeam_is_unique;
+DROP CONSTRAINT awayteam_is_unique;
+DROP CONSTRAINT referee_is_unique;
+
+// This code lods csv file from epl dataset
+LOAD CSV WITH HEADERS FROM
+"file:///EPL_matches.csv" as row
+// creates one Team node and HomeTeam and AwayTeam node
+MERGE(team1:Team:HomeTeam{name: row.HomeTeam})
+// Creates or find AwayTeam node with name from dataset
+MERGE(team2:Team:AwayTeam{name: row.AwayTeam})
+// Creates all referees of matches
+MERGE(referee:Referee{name: row.Referee});
+
+LOAD CSV WITH HEADERS FROM
+"file:///EPL_matches.csv" as row
+// This find the HTR and FTR column from the dataset and
+// set the values according to given condition
+WITH row,
+(CASE row.HTR 
+	WHEN "H" THEN row.HomeTeam
+	WHEN "A" THEN row.AwayTeam
+	ELSE "DRAW"
+END) AS half_time,
+// case for full time result
+// If "H" in dataset then store home team name
+(CASE row.FTR 
+	WHEN "H" THEN row.HomeTeam
+	WHEN "A" THEN row.AwayTeam
+	ELSE "DRAW"
+END) AS full_time
+
+// Find the homeTeam, awayTeam created before
+MATCH(homeTeam:HomeTeam{name:row.HomeTeam})
+MATCH(awayTeam:AwayTeam{name:row.AwayTeam})
+// Find Referees 
+MATCH(referee:Referee{name:row.Referee})
+// Create or find matches according to dataset storing following properties
+// with relationship :HANDLED_BY with referee
+MERGE (m:Match{season: row.Season, dateTime: row.DateTime, halfTimeResult: half_time, fullTimeResult: full_time})-[:HANDLED_BY]->(referee)
+//Creates or find the relationship between homeTeam, awayteam and match
+MERGE (homeTeam)-[:PLAYED{halfTimeGoal: toInteger(row.HTHG), fullTimeGoal: toInteger(row.FTHG)}]->(m)<-[:PLAYED{halfTimeGoal: toInteger(row.HTAG), fullTimeGoal: toInteger(row.FTAG)}]-(awayTeam);
+
+1=>
+// Find the team that played matches
+MATCH (team:Team)-[:PLAYED]->(match:Match)
+// filter by season greater or equal to 2000-01
+WHERE match.season >= "2000-01"
+// return all teams
+RETURN DISTINCT toUPPER(team.name) AS Teams
+// order by team name in ascending order
+ORDER BY Teams;
+
+2=>
+// Find the team liverpool that played matches with man united
+MATCH (liverpool:Team {name: 'Liverpool'})-[:PLAYED]->(match:Match)<-[:PLAYED]-(united:Team {name: 'Man United'})
+// filter data by sesason 2010
+WHERE match.season >= "2010" AND match.fullTimeResult = 'Liverpool'
+// return nodes and relationship
+RETURN liverpool,match,united;
+
+3=>
+// Find all matches that handled or referred by referee
+MATCH (m:Match)-[:HANDLED_BY]->(referee:Referee)
+// find matches since 2000 season
+WHERE m.season >= "2000-01"
+// counts the total matches 
+RETURN COUNT(m) AS total_matches_refereed, referee.name AS Referee
+// order by total matches in descending order 
+ORDER BY total_matches_refereed DESC
+// shows only five records
+LIMIT 5;
+
+4=>
+//Find the matches between two teams in 2020/21 season
+MATCH (t1:Team)-[homeTeam:PLAYED]->(m:Match)<-[awayTeam:PLAYED]-(t2:Team)
+WHERE m.season = "2020-21"
+// Return total teams and the goals they have scored and conceded
+RETURN t1.name As teams, SUM(homeTeam.fullTimeGoal) AS scored, SUM(awayTeam.fullTimeGoal) As conceded
+// order by team name
+ORDER BY teams;
+
+// Testing
+// Find the total teams playe match in season 2020/21
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+WHERE m.season = "2020-21"
+RETURN DISTINCT t.name;
+
+// lets find the teams and match played by them
+MATCH (t:Team)-[score1:PLAYED]->(m:Match)<-[score2:PLAYED]-(t1:Team)
+// filter season and take team Arsenal
+WHERE m.season = "2020-21" AND t.name = "Arsenal"
+// return team name and total score and conceded goal
+RETURN DISTINCT t.name, SUM(score1.fullTimeGoal), SUM(score2.fullTimeGoal) As conceded;
+
+
+5=>
+// Find the home team and the match played by them
+MATCH (t:HomeTeam)-[:PLAYED]->(m:Match)
+// since 2000 season and winner is home team of that match
+WHERE m.season >= "2000-01" AND m.fullTimeResult = t.name
+// Return team name and total matches won by team as home team
+RETURN DISTINCT t.name AS Team, COUNT(t) AS total_matches
+ORDER BY total_matches DESC
+LIMIT 1;
+
+6=>
+// Find the team and match
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+// matches where season is 2020/21 and team have losed that match
+WHERE m.season = "2020-21" AND (m.fullTimeResult <> t.name AND m.fullTimeResult <> "DRAW")
+// Total teams and total lost match
+RETURN DISTINCT t.name AS Team, COUNT(m) AS lost_matches
+//ordering
+ORDER BY lost_matches DESC
+// Top team
+LIMIT 1;
+
+7=>
+// Finds the teams and match
+MATCH (t1:Team)-[:PLAYED]->(m:Match)<-[:PLAYED]-(t2:Team)
+// where halfTimeResult of match is not won by first team
+// but at full time won the match
+WHERE m.season = "2020-21" AND ((m.halfTimeResult <> t1.name AND m.halfTimeResult <> "DRAW") AND m.fullTimeResult = t1.name)
+// return team name and half time and full time result
+RETURN t1.name As Team1, m.halfTimeResult As Half_time_winner, m.fullTimeResult As Full_time_winner, t2.name As Team2;
+
+8=>
+
+// Find eachTeam that played match
+MATCH (eachTeam:Team)-[:PLAYED]->(m:Match)
+// since 2000 season
+WHERE m.season >= "2000-01"
+// Return eachTeam and total point obtained
+RETURN eachTeam.name As Team_name, SUM(
+			CASE m.fullTimeResult
+				WHEN eachTeam.name THEN 3
+				WHEN "DRAW" THEN 1
+				ELSE 0
+			END) AS point_obtained
+ORDER BY point_obtained DESC
+// show the highest point
+LIMIT 1;
+
+Testing:
+MATCH (t:Team)-[:PLAYED]->(n:Match) WHERE n.season>= "2000-01" AND n.fullTimeResult= "DRAW" AND t.name="Man United" RETURN COUNT(n); 
+// 176 matches
+
+MATCH (t:Team)-[:PLAYED]->(n:Match) WHERE n.season>= "2000-01" AND n.fullTimeResult= t.name AND t.name="Man United" RETURN COUNT(n); 
+// 505 matches
+
+// Result = 505 * 3 + 176
+
+9=>
+// Find all teams and matches
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+// in season 2020-21
+WHERE m.season = "2020-21"
+//Return team name and sum the points
+RETURN DISTINCT t.name AS Ranking, SUM(
+			CASE m.fullTimeResult
+				WHEN t.name THEN 3
+				WHEN "DRAW" THEN 1
+				ELSE 0
+			END) AS Points
+// order in descending order
+ORDER BY Points DESC;
+
+
+10=>
+
+// Finds the each team and match
+MATCH (eachTeam:Team)-[:PLAYED]->(match:Match)
+// find the match since 2000 and the match result where team had not losed
+WHERE match.season >= "2000-01" AND (match.fullTimeResult = eachTeam.name OR match.fullTimeResult = "DRAW")
+// count the unbeaten records
+WITH eachTeam.name as Team, COUNT (match) as undefeat_record
+// return name of team
+RETURN Team
+// show top record
+ORDER BY Team
+LIMIT 1;
+
+
+
+// Extra
+
+// To get the highest point gainer in each season
+MATCH (eachTeam:Team)-[:PLAYED]->(m:Match)
+WHERE m.season >= "2000-01"
+// pass unique team name and season, sum the total points
+WITH DISTINCT eachTeam.name as Team, m.season As season,SUM(
+			CASE m.fullTimeResult
+				WHEN eachTeam.name THEN 3
+				WHEN "DRAW" THEN 1
+				ELSE 0
+			END) AS points
+// order by season in ascending and points by descending order
+ORDER BY season, points DESC
+// after collect the team name and points obtained of each season
+WITH season, collect({team:Team, point:points})[0] AS topHolder
+// return the top point gainer of each season
+RETURN season, topHolder.team as team, topHolder.point as obtained_points ;
+
+

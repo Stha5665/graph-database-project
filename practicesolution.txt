@@ -1,0 +1,107 @@
+LOAD CSV WITH HEADERS FROM
+"file:///EPL_matches.csv" as row
+MERGE (t1:Team:HomeTeam {name: row.HomeTeam, halfTimeGoal: toInteger(row.HTHG), fullTimeGoal: toInteger(row.FTHG)})-[:PLAYED]->(m:Match{season: row.Season, dateTime: row.DateTime, halfTimeResult: row.HTR, fullTimeResult: row.FTR, referee: row.Referee})<-[:PLAYED]-(t2:Team:AwayTeam {name: row.AwayTeam, halfTimeGoal: toInteger(row.HTAG), fullTimeGoal: toInteger(row.FTAG)});
+
+MATCH(t1:HomeTeam)-[:PLAYED]->(m:Match)<-[:PLAYED]-(t2:AwayTeam)
+with t1,m,t2,
+CASE m.fullTimeResult
+	WHEN 'H' THEN {winner: t1.name, loser: t2.name}
+	WHEN 'A' THEN {winner: t2.name, loser: t1.name}
+	ELSE {winner: "DRAW", loser: "DRAW"}
+END as value
+SET m += value
+
+WITH t1,m,t2,
+CASE m.halfTimeResult
+	WHEN 'H' THEN {halfTimeWinner: t1.name, halfTimeLoser: t2.name}
+	WHEN 'A' THEN {halfTimeWinner: t2.name, halfTimeLoser: t1.name}
+	ELSE {halfTimeWinner: "DRAW", halfTimeLoser: "DRAW"}
+END as value1
+SET m+= value1
+RETURN t1, m, t2;
+
+
+1=>
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+WHERE m.season >= "2000-01"
+RETURN DISTINCT t.name;
+
+2=> 
+MATCH (l:Team {name: 'Liverpool'})-[:PLAYED]->(m:Match)<-[:PLAYED]-(u:Team {name: 'Man United'})
+WHERE m.season >= "2010" AND m.winner = 'Liverpool'
+RETURN l,m,u;
+
+//Answer: 7
+
+3=>
+MATCH (m:Match)
+WHERE m.season >= "2000"
+RETURN DISTINCT m.referee, COUNT (*) AS total_matches
+ORDER BY total_matches DESC 
+LIMIT 5;
+
+4=> 
+MATCH (t1:Team)-[:PLAYED]->(m:Match)<-[:PLAYED]-(t2:Team)
+WHERE m.season = "2020-21"
+RETURN t1.name, SUM(t1.fullTimeGoal) AS scored, SUM(t2.fullTimeGoal) As conceded;
+
+MATCH (t1:AwayTeam{name: "Fulham"})-[:PLAYED]->(m:Match)<-[:PLAYED]-(t2:Team)
+WHERE m.season = "2020-21"
+RETURN t1.name, SUM(t1.fullTimeGoal) AS scored, SUM(t2.fullTimeGoal) As conceded;
+
+
+5=>
+MATCH (t:HomeTeam)-[:PLAYED]->(m:Match)
+WHERE m.season >= "2000-01" AND m.winner = t.name
+RETURN DISTINCT t.name AS Team, COUNT(t) AS total_matches
+ORDER BY total_matches DESC
+LIMIT 1;
+
+6=> 
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+WHERE m.season = "2020-21" AND m.loser = t.name
+RETURN DISTINCT t.name AS Team, COUNT(m) AS lost_matches
+ORDER BY lost_matches DESC
+LIMIT 1;
+
+7=>
+MATCH (t1:Team)-[:PLAYED]->(m:Match)<-[:PLAYED]-(t2:Team)
+WHERE m.season = "2020-21" AND (m.halfTimeLoser = t1.name AND m.winner = t1.name)
+RETURN t1, m, t2;
+
+8 =>
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+WHERE m.season >= "2000-01"
+RETURN DISTINCT t.name As Team, m.season As season, SUM(
+			CASE m.winner
+				WHEN t.name THEN 3
+				WHEN "DRAW" THEN 1
+				ELSE 0
+			END) AS points
+ORDER BY season, points DESC;
+
+
+9=>
+
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+WHERE m.season = "2020-21"
+RETURN DISTINCT t.name AS Ranking, SUM(
+			CASE m.winner
+				WHEN t.name THEN 3
+				WHEN "DRAW" THEN 1
+				ELSE 0
+			END) AS Points
+ORDER BY Points DESC;
+
+10 => 
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+WHERE m.season >= "2000-01" AND m.loser = t.name
+RETURN DISTINCT t.name As Team, m.season As season, COUNT (m) AS Lost_match
+ORDER BY season, Lost_match DESC;
+
+
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+WHERE m.season >= "2000-01" AND m.loser = t.name
+RETURN DISTINCT t.name As Team, m.season As season, co
+ORDER BY season, Lost_match DESC;
+

@@ -1,0 +1,201 @@
+ 1)
+MATCH (t:Team)-[:played_in]->(m:Match)
+WHERE m.season >= 2000 AND m.league = 'EPL'
+RETURN DISTINCT t.name
+
+
+Explanation:
+
+MATCH (t:Team)-[:played_in]->(m:Match): Matches all teams that have played in a match.
+WHERE m.season >= 2000 AND m.league = 'EPL': Filters the matches to only those played in the EPL since the year 2000.
+RETURN DISTINCT t.name: Returns the name of each team that matches the criteria, with duplicates removed.
+
+2)
+MATCH (l:Team {name: 'Liverpool'})-[:played_in]->(m:Match)<-[:played_in]-(u:Team {name: 'Man United'})
+WHERE m.winner = 'Liverpool' AND m.season >= 2010
+RETURN m.date, l.name AS Liverpool, u.name AS ManUnited
+
+Explanation:
+
+MATCH (l:Team {name: 'Liverpool'})-[:played_in]->(m:Match)<-[:played_in]-(u:Team {name: 'Man United'}): Matches all matches where Liverpool and Man United both played.
+WHERE m.winner = 'Liverpool' AND m.season >= 2010: Filters the matches to only those won by Liverpool and played in 2010 or later.
+RETURN m.date, l.name AS Liverpool, u.name AS ManUnited: Returns the date of the match, as well as the names of the two teams. The AS keyword is used to give aliases to the names of the teams so that they can be distinguished in the output.
+
+3)
+MATCH (r:Referee)-[:officiated]->(m:Match)
+WHERE m.season >= 2000
+WITH r, COUNT(m) AS num_matches
+ORDER BY num_matches DESC
+LIMIT 5
+RETURN r.name AS Referee, num_matches AS Matches
+
+Explanation:
+
+MATCH (r:Referee)-[:officiated]->(m:Match): Matches all referees who have officiated in a match.
+WHERE m.season >= 2000: Filters the matches to only those played in 2000 or later.
+WITH r, COUNT(m) AS num_matches: Groups the matches by referee and counts the number of matches each referee has officiated in.
+ORDER BY num_matches DESC: Orders the referees by the number of matches they have officiated in, in descending order.
+LIMIT 5: Limits the output to the top five referees.
+RETURN r.name AS Referee, num_matches AS Matches: Returns the name of each referee and the number of matches they have officiated in, with column aliases for clarity in the output
+
+4)
+MATCH (t:Team)-[s:scored]->(g:Goal)<-[c:conceded]-(o:Team)
+WHERE g.season = '2020/21'
+WITH t, SUM(s.score) AS goals_scored, SUM(c.score) AS goals_conceded
+RETURN t.name AS Team, goals_scored, goals_conceded
+
+Explanation:
+MATCH (t:Team)-[s:scored]->(g:Goal)<-[c:conceded]-(o:Team): Matches all teams that have scored or conceded goals in a match, and the goals they scored or conceded.
+WHERE g.season = '2020/21': Filters the matches to only those played in the 2020/21 season.
+WITH t, SUM(s.score) AS goals_scored, SUM(c.score) AS goals_conceded: Groups the goals by team and calculates the sum of the goals scored and conceded by each team.
+RETURN t.name AS Team, goals_scored, goals_conceded: Returns the name of each team and the total number of goals they scored and conceded, with column aliases for clarity in the output.
+
+
+5)
+MATCH (t:Team)-[:played_in]->(m:Match)
+WHERE m.season >= 2000 AND t.name = m.home_team AND m.winner = m.home_team
+WITH t, COUNT(*) AS home_wins
+ORDER BY home_wins DESC
+LIMIT 1
+RETURN t.name AS Team, home_wins AS HomeWins
+
+Explanation:
+
+MATCH (t:Team)-[:played_in]->(m:Match): Matches all teams that have played in a match, regardless of whether it was at home or away.
+WHERE m.season >= 2000 AND t.name = m.home_team AND m.winner = m.home_team: Filters the matches to only those played since 2000, where the team is the home team, and the home team won.
+WITH t, COUNT(*) AS home_wins: Groups the matches by team and counts the number of home wins for each team.
+ORDER BY home_wins DESC: Orders the teams by the number of home wins they have had, in descending order.
+LIMIT 1: Limits the output to the team with the most home wins.
+RETURN t.name AS Team, home_wins AS HomeWins: Returns the name of the team with the most home wins and the number of home wins they have had, with column aliases for clarity in the output.
+
+6)
+MATCH (t:Team)-[p:played_in]->(m:Match)
+WHERE m.season = '2020/21' AND (m.home_team = t.name OR m.away_team = t.name) AND m.winner <> 'Draw'
+WITH t, COUNT(*) AS num_losses
+ORDER BY num_losses DESC
+LIMIT 1
+RETURN t.name AS Team, num_losses AS Losses
+
+
+MATCH (t:Team)-[:PLAYED]->(m:Match)
+WHERE m.season = "2020-21" AND m.winner = t.name
+MATCH (t)-[:PLAYED]->(draw:Match)
+WHERE m.season = "2020-21" AND draw.winner = "DRAW"
+WITH t,COUNT(m) AS win_matches,COUNT(draw) AS draw_matches
+RETURN DISTINCT t.name AS Team, (38 - win_matches - draw_matches) AS lost_matches;
+
+Explanation:
+
+MATCH (t:Team)-[p:played_in]->(m:Match): Matches all teams that played in a match.
+WHERE m.season = '2020/21' AND (m.home_team = t.name OR m.away_team = t.name) AND m.winner <> 'Draw': Filters the matches to only those played in the 2020/21 season, where the team was either the home or away team, and the match did not end in a draw.
+WITH t, COUNT(*) AS num_losses: Groups the matches by team and counts the number of losses for each team.
+ORDER BY num_losses DESC: Orders the teams by the number of losses they have had, in descending order.
+LIMIT 1: Limits the output to the team with the most losses.
+RETURN t.name AS Team, num_losses AS Losses: Returns the name of the team with the most losses and the number of losses they have had, with column aliases for clarity in the output.
+
+7)
+MATCH (m:Match)-[:hosted_by]->(h:Venue), (ht:Team)-[:played_in]->(m), (at:Team)-[:played_in]->(m)
+WHERE m.season = '2020/21' AND m.half_time_winner = at.name AND m.winner = ht.name
+WITH ht.name AS winning_team, at.name AS losing_team, m.date AS match_date
+RETURN winning_team, losing_team, match_date
+
+
+
+
+Explanation:
+
+MATCH (m:Match)-[:hosted_by]->(h:Venue), (ht:Team)-[:played_in]->(m), (at:Team)-[:played_in]->(m): Matches all matches that were hosted by a venue, and their home team and away team.
+WHERE m.season = '2020/21' AND m.half_time_winner = at.name AND m.winner = ht.name: Filters the matches to only those played in the 2020/21 season, where the away team was winning at half time, but the home team won the match.
+WITH ht.name AS winning_team, at.name AS losing_team, m.date AS match_date: Sets the winning team, losing team, and match date as output.
+RETURN winning_team, losing_team, match_date: Returns the winning team, losing team, and match date as output.
+
+
+8)
+MATCH (t:Team)-[p:played_in]->(m:Match)
+WHERE m.season >= '2000/01'
+WITH t, SUM(
+  CASE
+    WHEN t.name = m.home_team AND m.home_score > m.away_score THEN 3
+    WHEN t.name = m.away_team AND m.away_score > m.home_score THEN 3
+    WHEN m.home_score = m.away_score THEN 1
+    ELSE 0
+  END
+) AS points
+ORDER BY points DESC
+LIMIT 1
+RETURN t.name AS Team, points AS Points
+
+Explanation:
+
+MATCH (t:Team)-[p:played_in]->(m:Match): Matches all teams that played in a match.
+WHERE m.season >= '2000/01': Filters the matches to only those played in seasons 2000/01 and later.
+WITH t, SUM(...) AS points: Groups the matches by team and calculates the total points earned by each team, based on the rules of the game.
+ORDER BY points DESC: Orders the teams by the total points earned, in descending order.
+LIMIT 1: Limits the output to the team with the highest total points.
+RETURN t.name AS Team, points AS Points: Returns the name of the team with the highest total points and their total points earned, with column aliases for clarity in the output.
+
+
+9)
+MATCH (t:Team)-[p:played_in]->(m:Match)
+WHERE m.season = '2020/21'
+WITH t, SUM(
+  CASE
+    WHEN t.name = m.home_team AND m.home_score > m.away_score THEN 3
+    WHEN t.name = m.away_team AND m.away_score > m.home_score THEN 3
+    WHEN m.home_score = m.away_score THEN 1
+    ELSE 0
+  END
+) AS points
+RETURN t.name AS Team, SUM(p.goals_for) AS Goals_For, SUM(p.goals_against) AS Goals_Against, SUM(p.goals_for) - SUM(p.goals_against) AS Goal_Difference, points AS Points
+ORDER BY Points DESC, Goal_Difference DESC, Goals_For DESC, t.name ASC
+
+
+Explanation:
+
+MATCH (t:Team)-[p:played_in]->(m:Match): Matches all teams that played in a match.
+WHERE m.season = '2020/21': Filters the matches to only those played in the 2020/21 season.
+WITH t, SUM(...) AS points: Groups the matches by team and calculates the total points earned by each team, based on the rules of the game.
+RETURN t.name AS Team, SUM(p.goals_for) AS Goals_For, SUM(p.goals_against) AS Goals_Against, SUM(p.goals_for) - SUM(p.goals_against) AS Goal_Difference, points AS Points: Returns the name of each team, the total number of goals scored and conceded by the team, the goal difference (goals scored minus goals conceded), and the total points earned by the team, as output.
+ORDER BY Points DESC, Goal_Difference DESC, Goals_For DESC, t.name ASC: Orders the output by the total points earned by the team in descending order, then by the goal difference in descending order, then by the number of goals scored by the team in descending order, and finally by the name of the team in ascending order.
+
+
+10)
+
+MATCH (t:Team)-[p:played_in]->(m:Match)
+WHERE p.result = 'D'
+WITH t, COLLECT(m.date) AS draw_dates
+UNWIND draw_dates AS date
+WITH t, date, DURATION.between(MIN(date) OVER (PARTITION BY t ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), date) AS duration
+ORDER BY duration DESC
+WITH t, duration
+LIMIT 1
+RETURN t.name AS Team, duration.days AS Unbeaten_Days
+
+MATCH (t:Team)-[p:PLAYED]->(m:Match)
+WHERE m.winner = 'DRAW'
+WITH t, COLLECT(m.dateTime) AS draw_dates
+UNWIND draw_dates AS date
+WITH t, date, DURATION.between(MIN(date) OVER (PARTITION BY t ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), date) AS duration
+ORDER BY duration DESC
+WITH t, duration
+LIMIT 1
+RETURN t.name AS Team, duration.days AS Unbeaten_Days
+
+
+MATCH (t:Team)-[p:PLAYED]->(m:Match)
+WHERE m.loser = t.name AND m.season = '2000-01' AND t.name = "Man United"
+WITH t, COLLECT(m.dateTime) AS draw_dates
+UNWIND draw_dates AS date
+WITH t, date, DURATION.between(MIN(date) OVER (PARTITION BY t ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), date) AS duration
+RETURN t.name, duration;
+
+Explanation:
+
+MATCH (t:Team)-[p:played_in]->(m:Match): Matches all teams that played in a match.
+WHERE p.result = 'D': Filters the matches to only those where the result was a draw.
+WITH t, COLLECT(m.date) AS draw_dates: Groups the matches by team and collects the dates of all matches that ended in a draw.
+UNWIND draw_dates AS date: Unwinds the list of dates into separate rows.
+WITH t, date, DURATION.between(...) AS duration: Calculates the duration (in days) between each date and the earliest date for the same team, using the DURATION.between function.
+ORDER BY duration DESC: Orders the results by the duration in descending order, so that the longest unbeaten record appears first.
+WITH t, duration LIMIT 1: Limits the results to the team with the longest unbeaten record.
+RETURN t.name AS Team, duration.days AS Unbeaten_Days: Returns the name of the team and the duration (in days) of their unbeaten record.
